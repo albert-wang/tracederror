@@ -7,9 +7,9 @@ import (
 
 var (
 	// If debug is false, no stack or file/line information is included with the wrapped error.
-	Debug     = true
+	Debug = true
 
-	// If this is false, then only the file and line where the error was created is printed, instead 
+	// If this is false, then only the file and line where the error was created is printed, instead
 	// of a full stack trace.
 	ShowStack = true
 )
@@ -21,7 +21,13 @@ type TracedError struct {
 	file         string
 }
 
-// Creates a new traced error. Calling this on an instance of traced error is idempotent, 
+var onError func(error, []byte, string, int) = nil
+
+func OnError(handler func(error, []byte, string, int)) {
+	onError = handler
+}
+
+// Creates a new traced error. Calling this on an instance of traced error is idempotent,
 // it just returns the original traced error. Calling this on nil returns nil.
 func New(wrappedError error) error {
 	if wrappedError == nil {
@@ -43,9 +49,14 @@ func New(wrappedError error) error {
 				enErr.stack = stack()
 			}
 		}
+
 		if _, file, line, ok := runtime.Caller(1); ok {
 			enErr.file = file
 			enErr.line = line
+		}
+
+		if onError != nil {
+			onError(wrappedError, enErr.stack, enErr.file, enErr.line)
 		}
 	}
 
@@ -63,6 +74,21 @@ func (enErr *TracedError) Error() string {
 	} else {
 		return enErr.WrappedError.Error()
 	}
+}
+
+// Returns the wrapped error, or nil if it doesn't exist.
+// If it is not a traced error, just return the error by itself.
+func Inner(e error) error {
+	if e == nil {
+		return nil
+	}
+
+	self := e.(*TracedError)
+	if self != nil {
+		return self.WrappedError
+	}
+
+	return e
 }
 
 func stack() []byte {
