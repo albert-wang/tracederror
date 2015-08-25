@@ -16,20 +16,25 @@ var (
 
 type TracedError struct {
 	WrappedError error
+	Context      interface{}
 	stack        []byte
 	line         int
 	file         string
 }
 
-var onError func(error, []byte, string, int) = nil
+var onError func(error, []byte, string, int, interface{}) = nil
 
-func OnError(handler func(error, []byte, string, int)) {
+func OnError(handler func(error, []byte, string, int, interface{})) {
 	onError = handler
 }
 
 // Creates a new traced error. Calling this on an instance of traced error is idempotent,
 // it just returns the original traced error. Calling this on nil returns nil.
 func New(wrappedError error) error {
+	return NewWithContext(wrappedError, nil)
+}
+
+func NewWithContext(wrappedError error, context interface{}) error {
 	if wrappedError == nil {
 		return nil
 	}
@@ -41,6 +46,7 @@ func New(wrappedError error) error {
 
 	enErr := &TracedError{
 		WrappedError: wrappedError,
+		Context:      context,
 	}
 
 	if Debug {
@@ -56,7 +62,7 @@ func New(wrappedError error) error {
 		}
 
 		if onError != nil {
-			onError(wrappedError, enErr.stack, enErr.file, enErr.line)
+			onError(wrappedError, enErr.stack, enErr.file, enErr.line, context)
 		}
 	}
 
