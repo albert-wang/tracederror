@@ -89,8 +89,8 @@ func Inner(e error) error {
 		return nil
 	}
 
-	self := e.(*TracedError)
-	if self != nil {
+	self, ok := e.(*TracedError)
+	if ok {
 		return self.WrappedError
 	}
 
